@@ -1,0 +1,175 @@
+// Specification: C4 Container Diagram
+// System: Marketplace Platform
+
+specification {
+  element actor
+  element system
+  element container
+  element database
+  element externalSystem
+
+  relationship sync
+  relationship async
+}
+
+model {
+  // External Systems
+  customer = actor 'Покупатель/Продавец' {
+    description 'Пользователи маркетплейса: покупатели и продавцы'
+  }
+
+  paymentGateway = externalSystem 'Payment Gateway' {
+    description 'Внешний платежный шлюз для обработки платежей'
+    technology 'HTTPS'
+  }
+
+  emailProvider = externalSystem 'Email Provider' {
+    description 'Внешний провайдер email-сервисов'
+    technology 'SMTP'
+  }
+
+  // Main System
+  marketplace = system 'Marketplace Platform' {
+    description 'Платформа маркетплейса'
+
+    // Frontend Layer
+    webApp = container 'Web Application' {
+      description 'Веб-приложение для браузеров'
+      technology 'React / Vue'
+      style {
+        shape browser
+      }
+    }
+
+    mobileApp = container 'Mobile Application' {
+      description 'Мобильное приложение (iOS/Android)'
+      technology 'React Native / Flutter'
+      style {
+        shape mobile
+      }
+    }
+
+    // API Gateway
+    apiGateway = container 'API Gateway' {
+      description 'Единая точка входа для всех API запросов. Обеспечивает аутентификацию, rate limiting, routing.'
+      technology 'Nginx / Kong / Envoy'
+    }
+
+    // Services
+    usersService = container 'Users Service' {
+      description 'Микросервис для управления пользователями. Регистрация, аутентификация, авторизация, профили, роли.'
+      technology 'FastAPI / Python'
+    }
+
+    catalogService = container 'Catalog Service' {
+      description 'Микросервис для управления товарным каталогом. Товары, категории, инвентарь, поиск.'
+      technology 'FastAPI / Python'
+    }
+
+    ordersService = container 'Orders Service' {
+      description 'Микросервис для управления заказами и платежами. Заказы, корзина, платежи.'
+      technology 'FastAPI / Python'
+    }
+
+    notificationsService = container 'Notifications Service' {
+      description 'Микросервис для уведомлений и персонализации. Уведомления, рекомендации, лента.'
+      technology 'FastAPI / Python'
+    }
+
+    // Message Queue
+    messageQueue = container 'Message Queue' {
+      description 'Очередь сообщений для асинхронной коммуникации между сервисами. События заказов, поведения пользователей.'
+      technology 'RabbitMQ'
+    }
+
+    // Databases
+    usersDB = database 'Users Database' {
+      description 'База данных микросервиса Users Service. Таблицы: users, profiles, roles, sessions.'
+      technology 'PostgreSQL'
+      style {
+        shape storage
+      }
+    }
+
+    catalogDB = database 'Catalog Database' {
+      description 'База данных микросервиса Catalog Service. Таблицы: products, categories, inventory, prices.'
+      technology 'PostgreSQL'
+      style {
+        shape storage
+      }
+    }
+
+    ordersDB = database 'Orders Database' {
+      description 'База данных микросервиса Orders Service. Таблицы: orders, order_items, payments, invoices, carts.'
+      technology 'PostgreSQL'
+      style {
+        shape storage
+      }
+    }
+
+    notificationsDB = database 'Notifications Database' {
+      description 'База данных микросервиса Notifications Service. Таблицы: notifications, templates, recommendations, user_behaviors.'
+      technology 'PostgreSQL'
+      style {
+        shape storage
+      }
+    }
+  }
+
+  // Relationships
+
+  // Client -> Frontend
+  customer -> marketplace.webApp 'Использует'
+  customer -> marketplace.mobileApp 'Использует'
+
+  // Frontend -> API Gateway
+  marketplace.webApp -> marketplace.apiGateway 'HTTP'
+  marketplace.mobileApp -> marketplace.apiGateway 'HTTP'
+
+  // API Gateway -> Services (Sync)
+  marketplace.apiGateway -> marketplace.usersService 'REST'
+  marketplace.apiGateway -> marketplace.catalogService 'REST'
+  marketplace.apiGateway -> marketplace.ordersService 'REST'
+  marketplace.apiGateway -> marketplace.notificationsService 'REST'
+
+  // Services -> Databases
+  marketplace.usersService -> marketplace.usersDB 'SQL'
+  marketplace.catalogService -> marketplace.catalogDB 'SQL'
+  marketplace.ordersService -> marketplace.ordersDB 'SQL'
+  marketplace.notificationsService -> marketplace.notificationsDB 'SQL'
+
+  // Service -> Service (Sync)
+  marketplace.ordersService -> marketplace.catalogService 'REST'
+  marketplace.ordersService -> marketplace.usersService 'REST'
+
+  // External Systems
+  marketplace.ordersService -> paymentGateway 'HTTPS'
+  marketplace.notificationsService -> emailProvider 'SMTP'
+
+  // Services -> Message Queue (Async)
+  marketplace.ordersService -> marketplace.messageQueue 'AMQP'
+  marketplace.catalogService -> marketplace.messageQueue 'AMQP'
+  marketplace.usersService -> marketplace.messageQueue 'AMQP'
+}
+
+views {
+  view index {
+    title 'Marketplace Platform - Container View'
+    include *
+  }
+
+  view frontend of marketplace {
+    title 'Frontend Layer'
+    include marketplace.webApp, marketplace.mobileApp, marketplace.apiGateway
+  }
+
+  view services of marketplace {
+    title 'Services Layer'
+    include marketplace.usersService, marketplace.catalogService, marketplace.ordersService, marketplace.notificationsService
+  }
+
+  view databases of marketplace {
+    title 'Databases Layer'
+    include marketplace.usersDB, marketplace.catalogDB, marketplace.ordersDB, marketplace.notificationsDB
+  }
+}
