@@ -13,11 +13,12 @@
   - Orders Service -> Catalog Service (Check inventory)
   - Orders Service -> Users Service (Get user data)
 - API Gateway -> Notifications Service
-  - Notifications Service -> Users Service (Get contact info)
+- API Gateway -> Recommendations Service
+- Notifications Service -> Users Service (Get contact info)
 
 Асинхронные взаимодействия (Message Queue):
 - Orders Service -> Message Queue -> Notifications Service (Order events)
-- Orders Service -> Message Queue -> Personalization (User behavior)
+- Orders Service -> Message Queue -> Recommendations (User behavior)
 
 ## Синхронные взаимодействия (HTTP/gRPC)
 
@@ -197,8 +198,8 @@ Use case: Отправка уведомлений по разным канала
   orders.exchange       catalog.exchange
         |                   |
   Q1 (notifications)    Q2 (updates)
-        |                   |
- Notifications Service   Personalization
+         |                   |
+  Notifications Service   Recommendations
 ```
 
 ---
@@ -235,9 +236,9 @@ Payload:
 }
 ```
 
-Consumer: Notifications Service
+Consumer: Notifications Service, Recommendations Service
 
-Действие: Отправить уведомление "Заказ создан" пользователю
+Действие: Notifications Service - отправить уведомление "Заказ создан" пользователю; Recommendations Service - обновить рекомендации на основе покупки
 
 ---
 
@@ -277,7 +278,7 @@ Exchange: orders.exchange
 
 Routing Key: user.purchase
 
-Queue: personalization.user_behavior
+Queue: recommendations.user_behavior
 
 Payload:
 ```json
@@ -299,7 +300,7 @@ Payload:
 }
 ```
 
-Consumer: Personalization Service (part of Notifications)
+Consumer: Recommendations Service
 
 Действие: Обновить рекомендации на основе покупки
 
@@ -313,7 +314,7 @@ Exchange: catalog.exchange
 
 Routing Key: product.viewed
 
-Queue: personalization.user_behavior
+Queue: recommendations.user_behavior
 
 Payload:
 ```json
@@ -329,7 +330,7 @@ Payload:
 }
 ```
 
-Consumer: Personalization Service
+Consumer: Recommendations Service
 
 Действие: Обновить рекомендации на основе просмотра
 
@@ -341,7 +342,7 @@ Exchange: catalog.exchange
 
 Routing Key: product.updated
 
-Queue: personalization.catalog_updates
+Queue: recommendations.catalog_updates
 
 Payload:
 ```json
@@ -358,7 +359,7 @@ Payload:
 }
 ```
 
-Consumer: Personalization Service
+Consumer: Recommendations Service
 
 Действие: Обновить рекомендации, если изменилась цена
 
@@ -372,7 +373,7 @@ Exchange: users.exchange
 
 Routing Key: user.registered
 
-Queue: personalization.user_registered
+Queue: recommendations.user_registered
 
 Payload:
 ```json
@@ -388,7 +389,7 @@ Payload:
 }
 ```
 
-Consumer: Personalization Service
+Consumer: Recommendations Service
 
 Действие: Инициализировать пустую ленту для нового пользователя
 

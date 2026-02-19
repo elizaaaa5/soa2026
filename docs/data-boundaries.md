@@ -10,7 +10,8 @@
 - Users DB: users, roles, profiles (Users Service)
 - Catalog DB: products, categories, inventory (Catalog Service)
 - Orders DB: orders, items, payments (Orders Service)
-- Notifications DB: notifications, templates, recommendations (Notifications Service)
+- Notifications DB: notifications, templates, delivery_status (Notifications Service)
+- Recommendations DB: user_behaviors, recommendations, products_embeddings (Recommendations Service)
 - Message Queue: для асинхронной коммуникации между сервисами
 
 ## Детальное описание баз данных
@@ -207,76 +208,118 @@ CREATE TABLE carts (
 
 ### 4. Notifications DB (владеет Notifications Service)
 
-База данных: PostgreSQL
+Домен: Notifications
 
-Таблицы:
+Описание: Хранение уведомлений, шаблонов и статусов доставки
 
-Таблица | Описание | Кол-во записей (прогноз)
----------|----------|-------------------------
-notifications | Уведомления | 1B
-templates | Шаблоны уведомлений | 100
-delivery_logs | Логи доставки | 1B
-recommendations | Рекомендации | 100M
-user_behaviors | Поведение пользователей | 1B
+Сущности:
+- notifications - Уведомления
+- templates - Шаблоны уведомлений
+- delivery_status - Статусы доставки
 
-Схема (упрощенная):
-
+Структура таблиц:
 ```sql
 CREATE TABLE notifications (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL, -- ссылка на внешний Users Service
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
     type VARCHAR(50) NOT NULL,
-    channel VARCHAR(50) NOT NULL,
-    subject VARCHAR(500),
-    body TEXT,
-    status VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
+    channel VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    sent_at TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status)
 );
 
 CREATE TABLE templates (
-    id UUID PRIMARY KEY,
-    event_type VARCHAR(100) UNIQUE NOT NULL,
-    subject_template TEXT NOT NULL,
-    body_template TEXT NOT NULL,
-    channel VARCHAR(50) NOT NULL,
-    is_active BOOLEAN DEFAULT true
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_type VARCHAR(100) NOT NULL UNIQUE,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE delivery_logs (
-    id UUID PRIMARY KEY,
-    notification_id UUID REFERENCES notifications(id),
-    timestamp TIMESTAMP DEFAULT NOW(),
-    status VARCHAR(50) NOT NULL,
-    error_message TEXT
-);
-
-CREATE TABLE user_behaviors (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    product_id UUID NOT NULL, -- ссылка на внешний Catalog Service
-    action_type VARCHAR(50) NOT NULL,
-    metadata JSONB,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE recommendations (
-    id UUID PRIMARY KEY,
-    user_id UUID NOT NULL,
-    product_id UUID NOT NULL,
-    score DECIMAL(5, 4) NOT NULL, -- 0.0000 - 1.0000
-    generated_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE delivery_status (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    notification_id UUID NOT NULL REFERENCES notifications(id),
+    provider VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    response_data JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    INDEX idx_notification_id (notification_id)
 );
 ```
 
-Что владеет:
-- Все уведомления
-- Шаблоны уведомлений
-- История доставки
-- Рекомендации
-- Поведение пользователей для персонализации
+Foreign Keys:
+- delivery_status.notification_id -> notifications(id)
 
-Что НЕ владеет:
-- Контент уведомлений (сгенерирован из шаблонов)
+---
+
+### 5. Recommendations DB (владеет Recommendations Service)
+
+Домен: Personalization
+
+Описание: Хранение поведения пользователей, рекомендаций и ML-моделей
+
+Сущности:
+- user_behaviors - Поведение пользователей
+- recommendations - Рекомендации товаров
+- products_embeddings - Векторные представления товаров
+- models - МL модели
+
+Структура таблиц:
+```sql
+CREATE TABLE user_behaviors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    product_id UUID NOT NULL,
+    action_type VARCHAR(20) NOT NULL,
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW(),
+    metadata JSONB,
+    INDEX idx_user_id (user_id),
+    INDEX idx_product_id (product_id),
+    INDEX idx_timestamp (timestamp),
+    INDEX idx_user_product (user_id, product_id)
+);
+
+CREATE TABLE recommendations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    product_id UUID NOT NULL,
+    score NUMERIC(5,4) NOT NULL,
+    reason TEXT,
+    generated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL DEFAULT NOW() + INTERVAL '7 days',
+    UNIQUE(user_id, product_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_score (score DESC),
+    INDEX idx_expires (expires_at)
+);
+
+CREATE TABLE products_embeddings (
+    product_id UUID PRIMARY KEY,
+    embedding VECTOR(384) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE models (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(100) NOT NULL UNIQUE,
+    version VARCHAR(20) NOT NULL,
+    model_data JSONB NOT NULL,
+    metrics JSONB,
+    is_active BOOLEAN DEFAULT false,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+Foreign Keys:
+- recommendations.user_id -> (reference to Users DB)
+- recommendations.product_id -> (reference to Catalog DB)
+- user_behaviors.user_id -> (reference to Users DB)
+- user_behaviors.product_id -> (reference to Catalog DB)
 
 ---
 
@@ -289,8 +332,8 @@ CREATE TABLE recommendations (
 Orders DB | Users DB | user_id | UUID пользователя
 Orders DB | Catalog DB | product_id | UUID товара
 Catalog DB | Users DB | seller_id | UUID продавца
-Notifications DB | Users DB | user_id | UUID пользователя
-Notifications DB | Catalog DB | product_id | UUID товара
+Recommendations DB | Users DB | user_id | UUID пользователя
+Recommendations DB | Catalog DB | product_id | UUID товара
 
 ### Получение связанных данных
 
@@ -330,7 +373,7 @@ Notifications DB | Catalog DB | product_id | UUID товара
 Users DB | User-based | user_id
 Catalog DB | Product-based | product_id
 Orders DB | User-based | user_id
-Notifications DB | User-based | user_id
+Recommendations DB | User-based | user_id
 
 ### Read Replicas
 
@@ -347,7 +390,7 @@ Notifications DB | User-based | user_id
 Users DB | Ежедневно | Full | 30 дней
 Catalog DB | Ежедневно | Full | 30 дней
 Orders DB | Ежедневно | Full + Incremental | 90 дней
-Notifications DB | Еженедельно | Full | 7 дней
+Recommendations DB | Еженедельно | Full | 7 дней
 
 ---
 
