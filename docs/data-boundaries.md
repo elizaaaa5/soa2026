@@ -6,30 +6,12 @@
 
 ## Карта данных
 
-```
-MARKETPLACE DATA BOUNDARIES
-
-   Users DB           Catalog DB
-   users, roles      products, categories
-   profiles           inventory
-
-Users Service      Catalog Service
-        |                      |
-        +----------+-----------+
-                   |
-        +----------+-----------+
-        |          |           |
-   Orders DB   Notifications DB
-   orders,    notifications
-   items,      templates
-   payments    recommendations
-
-Orders Service  Notifications Service
-        |           |
-        +-----------+
-                    |
-               Message Queue
-```
+Структура баз данных:
+- Users DB: users, roles, profiles (Users Service)
+- Catalog DB: products, categories, inventory (Catalog Service)
+- Orders DB: orders, items, payments (Orders Service)
+- Notifications DB: notifications, templates, recommendations (Notifications Service)
+- Message Queue: для асинхронной коммуникации между сервисами
 
 ## Детальное описание баз данных
 

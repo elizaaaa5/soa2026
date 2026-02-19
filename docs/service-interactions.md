@@ -6,38 +6,18 @@
 
 ## Карта взаимодействий
 
-```
-SERVICE INTERACTIONS MAP
+Синхронные взаимодействия:
+- API Gateway -> Users Service (Auth)
+- API Gateway -> Catalog Service (Products)
+- API Gateway -> Orders Service
+  - Orders Service -> Catalog Service (Check inventory)
+  - Orders Service -> Users Service (Get user data)
+- API Gateway -> Notifications Service
+  - Notifications Service -> Users Service (Get contact info)
 
-API GATEWAY
-      |
-      |---SYNC---> Users Service
-      |             (Auth)
-      |
-      |---SYNC---> Catalog Service
-      |             (Products)
-      |
-      |---SYNC---> Orders Service
-      |              |
-      |              |--SYNC---> Catalog Service
-      |              |             (Check inventory)
-      |              |
-      |              |--SYNC---> Users Service
-      |                         (Get user data)
-      |
-      |---SYNC---> Notifications Service
-                      |
-                      |--SYNC---> Users Service
-                                 (Get contact info)
-
-MESSAGE QUEUE (RabbitMQ)
-      |
-      |---ASYNC---> Notifications Service
-                    (Order events)
-      |
-      |---ASYNC---> Personalization
-                    (User behavior)
-```
+Асинхронные взаимодействия (Message Queue):
+- Orders Service -> Message Queue -> Notifications Service (Order events)
+- Orders Service -> Message Queue -> Personalization (User behavior)
 
 ## Синхронные взаимодействия (HTTP/gRPC)
 

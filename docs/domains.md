@@ -134,37 +134,25 @@
 
 ## Карта доменов
 
-```
-MARKETPLACE DOMAIN MAP
+Архитектура доменов:
+- Users - Управление пользователями
+- Catalog - Товары
+- Orders - Заказы
+- Personalization - Рекомендации
+- Payments - Обработка платежей
+- Notifications - Отправка уведомлений
 
-   USERS
-   Управление пользователями
-        |
-        +-------+-------+
-        |       |       |
-        V       V       V
-   CATALOG  ORDERS  PERSONALIZATION
-   Товары  Заказы  Рекомендации
-        |       |
-        +-------+-------+
-               |
-               V
-          PAYMENTS
-        Обработка платежей
-               |
-               V
-       NOTIFICATIONS
-      Отправка уведомлений
-```
+Связи между доменами:
+- Users связан с Catalog, Orders, Personalization
+- Orders связан с Catalog и Payments
+- Payments связан с Notifications
 
 ## Bounded Contexts
 
-Bounded Context | Домены | Основные бизнес-процессы
-----------------|--------|-------------------------
-Identity Context | User Management | Регистрация, вход, восстановление доступа
-Catalog Context | Product Catalog | Создание товара, поиск, просмотр
-Order Context | Order Management + Payment Processing | Корзина, оформление заказа, оплата
-Communication Context | Notifications + Personalization | Отправка уведомлений, рекомендации
+- Identity Context: User Management (Регистрация, вход, восстановление доступа)
+- Catalog Context: Product Catalog (Создание товара, поиск, просмотр)
+- Order Context: Order Management + Payment Processing (Корзина, оформление заказа, оплата)
+- Communication Context: Notifications + Personalization (Отправка уведомлений, рекомендации)
 
 ---
 

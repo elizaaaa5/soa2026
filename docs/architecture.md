@@ -23,29 +23,12 @@
 
 ## Высокоуровневая архитектура
 
-```
-                         CLIENTS
-                    (Web / Mobile App)
-                              |
-                              V
-                     API GATEWAY
-        (Auth, Rate Limiting, Routing)
-              |     |     |     |
-              V     V     V     V
-        USERS  CATALOG  ORDERS  NOTIFICATIONS
-        SERVICE SERVICE  SERVICE  SERVICE
-          |       |       |        |
-          V       V       V        V
-        USERS   CATALOG  ORDERS  NOTIFICATIONS
-          DB      DB       DB      DB
-
-              |       |       |
-              +-------+-------+
-                      |
-                      V
-               MESSAGE QUEUE
-               (RabbitMQ)
-```
+Архитектура состоит из следующих слоев:
+- Frontend Layer: Web и мобильные приложения
+- API Gateway: Единая точка входа для всех клиентов
+- Services Layer: Микросервисы (Users, Catalog, Orders, Notifications)
+- Data Layer: Базы данных для каждого сервиса
+- Message Queue: Очередь сообщений для асинхронной коммуникации
 
 ## Микросервисы
 
