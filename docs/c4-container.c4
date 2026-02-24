@@ -10,6 +10,7 @@ specification {
 
   relationship sync
   relationship async
+  relationship bidirectional
 }
 
 model {
@@ -72,7 +73,12 @@ model {
     }
 
     notificationsService = container 'Notifications Service' {
-      description 'Микросервис для уведомлений и персонализации. Уведомления, рекомендации, лента.'
+      description 'Микросервис для отправки уведомлений. Email, push, SMS, управление шаблонами.'
+      technology 'FastAPI / Python'
+    }
+
+    recommendationsService = container 'Recommendations Service' {
+      description 'Микросервис для рекомендаций и персонализации. ML-алгоритмы, анализ поведения, предсказания.'
       technology 'FastAPI / Python'
     }
 
@@ -108,7 +114,15 @@ model {
     }
 
     notificationsDB = database 'Notifications Database' {
-      description 'База данных микросервиса Notifications Service. Таблицы: notifications, templates, recommendations, user_behaviors.'
+      description 'База данных микросервиса Notifications Service. Таблицы: notifications, templates, delivery_status.'
+      technology 'PostgreSQL'
+      style {
+        shape storage
+      }
+    }
+
+    recommendationsDB = database 'Recommendations Database' {
+      description 'База данных микросервиса Recommendations Service. Таблицы: user_behaviors, recommendations, products_embeddings, models.'
       technology 'PostgreSQL'
       style {
         shape storage
@@ -122,34 +136,40 @@ model {
   customer -> marketplace.webApp 'Использует'
   customer -> marketplace.mobileApp 'Использует'
 
-  // Frontend -> API Gateway
-  marketplace.webApp -> marketplace.apiGateway 'HTTP'
-  marketplace.mobileApp -> marketplace.apiGateway 'HTTP'
+  // Frontend <-> API Gateway (Двунаправленное)
+  marketplace.webApp -[bidirectional]-> marketplace.apiGateway 'Синхронное'
+  marketplace.mobileApp -[bidirectional]-> marketplace.apiGateway 'Синхронное'
 
-  // API Gateway -> Services (Sync)
-  marketplace.apiGateway -> marketplace.usersService 'REST'
-  marketplace.apiGateway -> marketplace.catalogService 'REST'
-  marketplace.apiGateway -> marketplace.ordersService 'REST'
-  marketplace.apiGateway -> marketplace.notificationsService 'REST'
+  // API Gateway <-> Services (Двунаправленное)
+  marketplace.apiGateway -[bidirectional]-> marketplace.usersService 'Синхронное'
+  marketplace.apiGateway -[bidirectional]-> marketplace.catalogService 'Синхронное'
+  marketplace.apiGateway -[bidirectional]-> marketplace.ordersService 'Синхронное'
+  marketplace.apiGateway -[bidirectional]-> marketplace.notificationsService 'Синхронное'
+  marketplace.apiGateway -[bidirectional]-> marketplace.recommendationsService 'Синхронное'
 
-  // Services -> Databases
-  marketplace.usersService -> marketplace.usersDB 'SQL'
-  marketplace.catalogService -> marketplace.catalogDB 'SQL'
-  marketplace.ordersService -> marketplace.ordersDB 'SQL'
-  marketplace.notificationsService -> marketplace.notificationsDB 'SQL'
+  // Services <-> Databases (Двунаправленное)
+  marketplace.usersService -[bidirectional]-> marketplace.usersDB 'Синхронное'
+  marketplace.catalogService -[bidirectional]-> marketplace.catalogDB 'Синхронное'
+  marketplace.ordersService -[bidirectional]-> marketplace.ordersDB 'Синхронное'
+  marketplace.notificationsService -[bidirectional]-> marketplace.notificationsDB 'Синхронное'
+  marketplace.recommendationsService -[bidirectional]-> marketplace.recommendationsDB 'Синхронное'
 
-  // Service -> Service (Sync)
-  marketplace.ordersService -> marketplace.catalogService 'REST'
-  marketplace.ordersService -> marketplace.usersService 'REST'
+  // Service -> Service (Однонаправленное)
+  marketplace.ordersService -> marketplace.catalogService 'Синхронное'
+  marketplace.ordersService -> marketplace.usersService 'Синхронное'
 
-  // External Systems
-  marketplace.ordersService -> paymentGateway 'HTTPS'
-  marketplace.notificationsService -> emailProvider 'SMTP'
+  // External Systems (Однонаправленные)
+  marketplace.ordersService -> paymentGateway 'Синхронное'
+  marketplace.notificationsService -> emailProvider 'Синхронное'
 
-  // Services -> Message Queue (Async)
-  marketplace.ordersService -> marketplace.messageQueue 'AMQP'
-  marketplace.catalogService -> marketplace.messageQueue 'AMQP'
-  marketplace.usersService -> marketplace.messageQueue 'AMQP'
+  // Services -> Message Queue (Однонаправленное)
+  marketplace.ordersService -> marketplace.messageQueue 'Асинхронное'
+  marketplace.catalogService -> marketplace.messageQueue 'Асинхронное'
+  marketplace.usersService -> marketplace.messageQueue 'Асинхронное'
+
+  //  Message Queue -> Services (Однонаправленное)
+  marketplace.messageQueue -> marketplace.recommendationsService 'Асинхронное'
+  marketplace.messageQueue -> marketplace.notificationsService 'Асинхронное'
 }
 
 views {
@@ -165,11 +185,40 @@ views {
 
   view services of marketplace {
     title 'Services Layer'
-    include marketplace.usersService, marketplace.catalogService, marketplace.ordersService, marketplace.notificationsService
+    include marketplace.usersService, marketplace.catalogService, marketplace.ordersService, marketplace.notificationsService, marketplace.recommendationsService
   }
 
   view databases of marketplace {
     title 'Databases Layer'
-    include marketplace.usersDB, marketplace.catalogDB, marketplace.ordersDB, marketplace.notificationsDB
+    include marketplace.usersDB, marketplace.catalogDB, marketplace.ordersDB, marketplace.notificationsDB, marketplace.recommendationsDB
+  }
+
+  view all_with_db of marketplace {
+    title 'Services and Databases with Interactions'
+    include marketplace.webApp, marketplace.mobileApp, marketplace.apiGateway,
+           marketplace.usersService, marketplace.usersDB,
+           marketplace.catalogService, marketplace.catalogDB,
+           marketplace.ordersService, marketplace.ordersDB,
+           marketplace.notificationsService, marketplace.notificationsDB,
+           marketplace.recommendationsService, marketplace.recommendationsDB,
+           marketplace.messageQueue
+
+    style marketplace.usersService, marketplace.catalogService,
+           marketplace.ordersService, marketplace.notificationsService, marketplace.recommendationsService {
+      color amber
+    }
+
+    style marketplace.usersDB, marketplace.catalogDB,
+           marketplace.ordersDB, marketplace.notificationsDB, marketplace.recommendationsDB {
+      color indigo
+    }
+
+    style marketplace.apiGateway {
+      color green
+    }
+
+    style marketplace.messageQueue {
+      color red
+    }
   }
 }

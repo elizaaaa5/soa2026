@@ -10,14 +10,15 @@
 
 ## Архитектура
 
-### Выбранный подход: DDD-based (4 микросервиса)
+### Выбранный подход: DDD-based (5 микросервисов)
 
 Сервис | Домен | Ответственность
 --------|-------|-----------------
 Users Service | User Management | Регистрация, аутентификация, профили пользователей
 Catalog Service | Product Catalog | Товары, категории, инвентарь, цены
 Orders Service | Order Management + Payments | Заказы, корзина, обработка платежей
-Notifications Service | Notifications + Personalization | Уведомления, рекомендации, лента товаров
+Notifications Service | Notifications | Отправка уведомлений (email, push, SMS)
+Recommendations Service | Personalization | Рекомендации товаров, персонализированная лента
 
 Выбор обоснован в docs/decomposition.md
 

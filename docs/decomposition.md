@@ -17,7 +17,8 @@
 Identity Service | User Management | FastAPI + PostgreSQL
 Catalog Service | Product Catalog | FastAPI + PostgreSQL
 Order Service | Order Management + Payment Processing | FastAPI + PostgreSQL
-Notification Service | Notifications + Personalization | FastAPI + PostgreSQL
+Notification Service | Notifications | FastAPI + PostgreSQL
+Recommendations Service | Personalization | FastAPI + PostgreSQL
 
 ### Границы владения данными
 
@@ -28,7 +29,8 @@ Catalog DB (products, categories, inventory)
 
 Order DB (orders, items, payments)
 
-Notification DB (notifications, templates, recommendations)
+Notification DB (notifications, templates, delivery_status)
+Recommendations DB (user_behaviors, recommendations, products_embeddings)
 ```
 
 ### Взаимодействия
@@ -40,13 +42,13 @@ Notification DB (notifications, templates, recommendations)
 
 Асинхронные (Message Queue):
 - Order -> Notification (статус заказа)
-- Order -> Personalization (покупка пользователя)
-- Catalog -> Personalization (обновления товаров)
+- Order -> Recommendations (покупка пользователя)
+- Catalog -> Recommendations (обновления товаров)
 
 ### Trade-off'ы Варианта A
 
 Плюсы:
-- Простота развертывания (4 сервиса)
+- Простота развертывания (5 сервисов)
 - Меньше межсервисных коммуникаций
 - Единая транзакция для заказа+платежа
 - Быстрый старт для команды
@@ -55,7 +57,7 @@ Notification DB (notifications, templates, recommendations)
 Минусы:
 - Order Service перегружен (2 домена)
 - Payment тесно связан с Order - сложно эволюционировать
-- Notification Service нагружен (2 домена)
+- Notifications Service и Recommendations Service разделены
 - Сложнее независимо масштабировать домены
 - Общее состояние - если упадет Order, блокируется и Payment
 
@@ -197,8 +199,8 @@ Event Bus (Kafka/RabbitMQ)
 
 Характеристика | Вариант A (DDD) | Вариант B (Single Responsibility) | Вариант C (Event-Driven)
 ----------------|-------------------|-----------------------------------|--------------------------
-Количество сервисов | 4 | 6 | 6 + Event Bus
-Количество баз данных | 4 | 6 | 6
+Количество сервисов | 5 | 6 | 6 + Event Bus
+Количество баз данных | 5 | 6 | 6
 Сложность развертывания | Низкая | Средняя | Высокая
 Сложность операций | Низкая | Средняя | Высокая
 Масштабируемость | Средняя | Высокая | Очень высокая
@@ -230,10 +232,9 @@ Latency запросов | Низкая | Средняя | Высокая
 
 #### 3. Эволюционный путь
 ```
-Phase 1 (сейчас): 4 сервиса
-Phase 2: 5 сервисов (выделение Payment)
-Phase 3: 6 сервисов (выделение Personalization)
-Phase 4: Event-Driven (внедрение Kafka)
+Phase 1 (сейчас): 5 сервисов (Notifications и Recommendations разделены)
+Phase 2: 6 сервисов (выделение Payment из Orders)
+Phase 3: Event-Driven (внедрение Kafka)
 ```
 
 #### 4. Оценка риска
