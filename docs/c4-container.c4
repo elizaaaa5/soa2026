@@ -166,7 +166,10 @@ model {
   marketplace.ordersService -> marketplace.messageQueue 'Асинхронное'
   marketplace.catalogService -> marketplace.messageQueue 'Асинхронное'
   marketplace.usersService -> marketplace.messageQueue 'Асинхронное'
-  marketplace.recommendationsService -> marketplace.messageQueue 'Асинхронное'
+
+  //  Message Queue -> Services (Однонаправленное)
+  marketplace.messageQueue -> marketplace.recommendationsService 'Асинхронное'
+  marketplace.messageQueue -> marketplace.notificationsService 'Асинхронное'
 }
 
 views {
