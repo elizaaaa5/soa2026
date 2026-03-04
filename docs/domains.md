@@ -152,8 +152,7 @@
 - Identity Context: User Management (Регистрация, вход, восстановление доступа)
 - Catalog Context: Product Catalog (Создание товара, поиск, просмотр)
 - Order Context: Order Management + Payment Processing (Корзина, оформление заказа, оплата)
-- Communication Context: Notifications (Отправка уведомлений)
-- Personalization Context: Personalization (Рекомендации, лента товаров)
+- Communication Context: Notifications + Personalization (Отправка уведомлений, рекомендации)
 
 ---
 

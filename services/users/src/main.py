@@ -1,78 +1,61 @@
-"""
-Users Service - микросервис для управления пользователями.
+"""Users Service - управление пользователями и аутентификация."""
 
-Ответственность:
-- Регистрация пользователей
-- Аутентификация и авторизация
-- Управление профилями
-- Управление ролями и правами доступа
-
-Технологический стек: FastAPI + PostgreSQL
-
-На данном этапе реализован только health check endpoint.
-Бизнес-логика будет добавлена в будущем.
-"""
-
-from fastapi import FastAPI
-from pydantic import BaseModel
 import os
 
-# Получаем переменные окружения
-SERVICE_NAME = os.getenv("SERVICE_NAME", "users-service")
-SERVICE_VERSION = os.getenv("SERVICE_VERSION", "1.0.0")
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# Инициализация FastAPI приложения
+from src.api import api_router
+from src.config import get_settings
+
+settings = get_settings()
+
 app = FastAPI(
-    title=SERVICE_NAME.replace("-", " ").title(),
-    description="Users Service - микросервис для управления пользователями",
-    version=SERVICE_VERSION,
+    title="Users Service",
+    description="API для управления пользователями и аутентификации",
+    version=settings.service_version,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class HealthResponse(BaseModel):
-    """Модель ответа health check endpoint"""
-    status: str
-    service: str
-    version: str
+# Include API routes
+app.include_router(api_router)
 
 
 @app.get("/")
 async def root():
-    """Корневой endpoint"""
+    """Корневой endpoint."""
     return {
-        "service": SERVICE_NAME,
-        "version": SERVICE_VERSION,
-        "message": "Users Service is running"
+        "service": settings.service_name,
+        "version": settings.service_version,
+        "message": "Users Service is running",
     }
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health():
-    """
-    Health check endpoint.
-
-    Возвращает статус работоспособности сервиса.
-    Используется для мониторинга и load balancing.
-
-    Returns:
-        HealthResponse: статус сервиса
-    """
-    return HealthResponse(
-        status="ok",
-        service=SERVICE_NAME,
-        version=SERVICE_VERSION
-    )
+    """Health check endpoint."""
+    return {
+        "status": "ok",
+        "service": settings.service_name,
+        "version": settings.service_version,
+    }
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
-
     uvicorn.run(
         "main:app",
-        host=host,
-        port=port,
-        reload=True
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
     )

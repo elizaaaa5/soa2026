@@ -1,116 +1,68 @@
 # Users Service
 
-## Описание
+Микросервис для управления пользователями и аутентификации.
 
-Users Service - микросервис для управления пользователями маркетплейса.
+## Функциональность
 
-### Ответственность
+- Регистрация пользователей
+- Аутентификация (JWT access + refresh tokens)
+- Управление ролями (USER, SELLER, ADMIN)
+- Refresh токены с хранением в БД
 
-- Регистрация новых пользователей (покупатели и продавцы)
-- Аутентификация и авторизация
-- Управление профилями пользователей
-- Управление ролями и правами доступа
+## Технологический стек
 
-### Технологический стек
+- Python 3.11+
+- FastAPI
+- PostgreSQL + SQLAlchemy (async)
+- Alembic (миграции)
+- JWT (python-jose)
+- bcrypt (хеширование паролей)
 
-- Язык: Python 3.11+
-- Фреймворк: FastAPI
-- Сервер: Uvicorn
-- База данных: PostgreSQL (будет подключена в будущем)
+## API Endpoints
 
-## API
-
-### Health Check
-
-```http
-GET /health
-```
-
-Response (200 OK):
-```json
-{
-  "status": "ok",
-  "service": "users-service",
-  "version": "1.0.0"
-}
-```
-
-### Root
-
-```http
-GET /
-```
-
-Response (200 OK):
-```json
-{
-  "service": "users-service",
-  "version": "1.0.0",
-  "message": "Users Service is running"
-}
-```
+| Метод | Endpoint | Описание | Auth |
+|-------|----------|----------|------|
+| POST | /auth/register | Регистрация | ❌ |
+| POST | /auth/login | Вход | ❌ |
+| POST | /auth/refresh | Обновление токена | ❌ |
+| GET | /users/me | Профиль пользователя | ✅ |
+| GET | /health | Health check | ❌ |
 
 ## Запуск
+
+### Через Docker Compose
+
+```bash
+docker-compose up -d
+```
 
 ### Локально
 
 ```bash
-cd services/users/src
-pip install -r requirements.txt
-python main.py
+uv sync
+alembic upgrade head
+uv run uvicorn src.main:app --reload --port 8001
 ```
 
-### Через Docker
+## Переменные окружения
 
-```bash
-cd services/users
-docker-compose up -d
-```
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| DATABASE_URL | URL базы данных | postgresql+asyncpg://... |
+| JWT_SECRET_KEY | Секретный ключ JWT | - |
+| JWT_ALGORITHM | Алгоритм JWT | HS256 |
+| ACCESS_TOKEN_EXPIRE_MINUTES | Время жизни access токена | 30 |
+| REFRESH_TOKEN_EXPIRE_DAYS | Время жизни refresh токена | 7 |
 
-### Проверка
+## Роли пользователей
 
-```bash
-curl http://localhost:8000/health
-```
+| Роль | Описание |
+|------|----------|
+| USER | Покупатель - может создавать заказы |
+| SELLER | Продавец - может управлять товарами |
+| ADMIN | Администратор - полный доступ |
 
-## Текущее состояние
+## Токены
 
-- Health check endpoint
-- Docker контейнеризация
-- Docker Compose конфигурация
-- База данных (PostgreSQL) - TBD
-- Регистрация пользователей - TBD
-- Аутентификация (JWT) - TBD
-- Управление профилями - TBD
-
-## Архитектура
-
-```
-Users Service
-    |
-    | FastAPI Application
-    | - / (root)
-    | - /health
-    | - /register (TBD)
-    | - /login (TBD)
-    | - /users (TBD)
-    |
-    V
-PostgreSQL DB (будет подключена)
-```
-
-## Взаимодействия с другими сервисами
-
-### Синхронные (HTTP)
-
-Откуда | Куда | Операция
---------|------|----------
-API Gateway | Users Service | Валидация токена
-Orders Service | Users Service | Получение данных пользователя
-Notifications Service | Users Service | Получение контактных данных
-
-### Асинхронные (Message Queue)
-
-Откуда | Куда | Событие
---------|------|--------
-Users Service | Message Queue | UserRegistered
+- **Access token**: 30 минут, содержит user_id и role
+- **Refresh token**: 7 дней, хранится в БД, можно отозвать

@@ -26,7 +26,7 @@
 Архитектура состоит из следующих слоев:
 - Frontend Layer: Web и мобильные приложения
 - API Gateway: Единая точка входа для всех клиентов
-- Services Layer: Микросервисы (Users, Catalog, Orders, Notifications, Recommendations)
+- Services Layer: Микросервисы (Users, Catalog, Orders, Notifications)
 - Data Layer: Базы данных для каждого сервиса
 - Message Queue: Очередь сообщений для асинхронной коммуникации
 
@@ -92,37 +92,19 @@ API (планируется):
 
 ### 4. Notifications Service
 
-Домен: Notifications
+Домен: Notifications + Personalization
 
 Ответственность:
-- Отправка уведомлений пользователям (email, push, SMS)
-- Управление шаблонами уведомлений
-- История отправленных уведомлений
-
-API (планируется):
-- GET /api/v1/notifications - список уведомлений
-- POST /api/v1/notifications/{id}/read - отметить прочитанным
-- POST /api/v1/notifications/send - отправить уведомление
-
-База данных: PostgreSQL (notifications, templates, delivery_status)
-
----
-
-### 5. Recommendations Service
-
-Домен: Personalization
-
-Ответственность:
+- Отправка уведомлений пользователям
 - Формирование персонализированной ленты
-- Рекомендации товаров на основе поведения
-- Аналитика взаимодействия пользователей с товарами
+- Рекомендации товаров
 
 API (планируется):
 - GET /api/v1/feed - персонализированная лента
-- GET /api/v1/recommendations - рекомендации товаров
-- POST /api/v1/behavior - запись действия пользователя
+- GET /api/v1/notifications - список уведомлений
+- POST /api/v1/notifications/{id}/read - отметить прочитанным
 
-База данных: PostgreSQL (user_behaviors, recommendations, products_embeddings, models)
+База данных: PostgreSQL (notifications, templates, recommendations)
 
 ---
 
@@ -142,9 +124,8 @@ API Gateway | Users | Валидация токена | HTTP
 --------|------|---------|--------
 Orders | Notifications | OrderCreated | RabbitMQ
 Orders | Notifications | OrderStatusChanged | RabbitMQ
-Orders | Recommendations | UserPurchase | RabbitMQ
-Catalog | Recommendations | ProductUpdated | RabbitMQ
-Users | Recommendations | UserViewedProduct | RabbitMQ
+Orders | Personalization | UserPurchase | RabbitMQ
+Catalog | Personalization | ProductUpdated | RabbitMQ
 
 ---
 
@@ -238,6 +219,7 @@ Users | Recommendations | UserViewedProduct | RabbitMQ
 
 ### Phase 2: Развитие
 - Выделение Payment Service из Orders
+- Выделение Personalization Service из Notifications
 - Внедрение CI/CD
 
 ### Phase 3: Масштабирование

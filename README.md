@@ -1,89 +1,116 @@
-# SOA2026 - Marketplace Architecture
+# SOA2026 - Marketplace API
 
-## Описание проекта
-
-Архитектурное проектирование маркетплейса в рамках курса SOA (Service Oriented Architecture).
-
-## Цель работы
-
-Спроектировать масштабируемую архитектуру маркетплейса с использованием принципов DDD, C4 моделирования и микросервисов.
+API маркетплейса с контрактным подходом (OpenAPI-first) и микросервисной архитектурой.
 
 ## Архитектура
 
-### Выбранный подход: DDD-based (5 микросервисов)
+### Сервисы
 
-Сервис | Домен | Ответственность
---------|-------|-----------------
-Users Service | User Management | Регистрация, аутентификация, профили пользователей
-Catalog Service | Product Catalog | Товары, категории, инвентарь, цены
-Orders Service | Order Management + Payments | Заказы, корзина, обработка платежей
-Notifications Service | Notifications | Отправка уведомлений (email, push, SMS)
-Recommendations Service | Personalization | Рекомендации товаров, персонализированная лента
+| Сервис | Порт | Ответственность |
+|--------|------|-----------------|
+| **Gateway** | 8000 | Единая точка входа, JWT валидация, логирование |
+| **Users** | 8001 | Регистрация, аутентификация, роли (USER, SELLER, ADMIN) |
+| **Catalog** | 8002 | CRUD товаров, мягкое удаление, пагинация |
+| **Orders** | 8003 | Заказы, промокоды, бизнес-логика |
 
-Выбор обоснован в docs/decomposition.md
+### Технологии
+
+- **Python 3.11** + **FastAPI**
+- **PostgreSQL** + **SQLAlchemy** (async)
+- **Alembic** (миграции)
+- **JWT** (python-jose)
+- **Docker** + **Docker Compose**
+
+## Быстрый запуск
+
+```bash
+# Запуск всех сервисов
+docker-compose up -d
+
+# Проверка
+curl http://localhost:8000/health
+```
+
+### Эндпоинты
+
+| Endpoint | Описание |
+|----------|----------|
+| `POST /auth/register` | Регистрация |
+| `POST /auth/login` | Вход |
+| `POST /auth/refresh` | Обновление токена |
+| `GET/POST/PUT/DELETE /products` | CRUD товаров |
+| `POST /orders` | Создание заказа |
+| `PUT /orders/{id}` | Обновление заказа |
+| `POST /orders/{id}/cancel` | Отмена заказа |
+| `POST /promo-codes` | Создание промокода |
 
 ## Структура проекта
 
 ```
 soa2026/
-├── README.md
-├── docs/
-│   ├── c4-container.c4                # C4 Container диаграмма (likeC4)
-│   ├── architecture.md                # Общее описание архитектуры
-│   ├── decomposition.md               # 3 варианта + trade-off'ы
-│   ├── domains.md                     # Домены и их границы
-│   ├── data-boundaries.md             # Владение данными
-│   └── service-interactions.md        # Взаимодействия сервисов
+├── docker-compose.yml          # Все сервисы
 ├── services/
-│   └── users/                         # Users Service (реализован)
-│       ├── src/
-│       │   ├── main.py               # FastAPI приложение
-│       │   └── requirements.txt      # Зависимости
-│       ├── Dockerfile                # Docker образ
-│       ├── docker-compose.yml        # Docker Compose
-│       └── README.md                 # Описание сервиса
-├── Makefile
-└── .gitignore
+│   ├── gateway/                # API Gateway (8000)
+│   ├── users/                  # Auth + Users (8001)
+│   ├── catalog/                # Products CRUD (8002)
+│   ├── orders/                 # Orders + PromoCodes (8003)
+│   └── shared/                 # OpenAPI спецификации
+│       └── openapi/
+│           ├── auth.yaml
+│           ├── catalog.yaml
+│           └── orders.yaml
+└── docs/                       # Архитектурная документация
 ```
 
-## Быстрый запуск
-
-### Требования
-- Docker
-- Docker Compose
-- Make
-
-### Запуск Users Service
+## Кодогенерация из OpenAPI
 
 ```bash
-# Запуск сервиса
-make up
-
-# Проверка health endpoint
-curl http://localhost:8000/health
-# Ответ: {"status": "ok"}
-
-# Просмотр логов
-make logs
-
-# Остановка
-make down
+# Генерация моделей для всех сервисов
+cd services/shared
+uv run python generate.py --all
 ```
 
-### Просмотр C4 диаграммы (likeC4)
+Сгенерированный код попадает в `*/api/generated/` и добавлен в `.gitignore`.
 
-```bash
-# Генерация диаграммы
-make likec4-serve
+## Требования задания (task.md)
 
-# Открыть в браузере: http://localhost:9000
-```
+| Баллы | Требование | Статус |
+|-------|------------|--------|
+| 1 | OpenAPI спецификация CRUD | ✅ |
+| 2 | Схемы данных в OpenAPI | ✅ |
+| 3 | Кодогенерация из OpenAPI | ✅ |
+| 4 | PostgreSQL + Alembic + мягкое удаление | ✅ |
+| 5 | Контрактная обработка ошибок | ✅ |
+| 6 | Контрактная валидация | ✅ |
+| 7 | Бизнес-логика заказов | ✅ |
+| 8 | JSON логирование | ✅ |
+| 9 | JWT авторизация | ✅ |
+| 10 | Ролевая модель | ✅ |
 
 ## Документация
 
-- Общее описание архитектуры (docs/architecture.md) — обзор системы и решений
-- Альтернативные варианты декомпозиции (docs/decomposition.md) — 3 подхода с trade-off'ами
-- Домены и их границы (docs/domains.md) — 6 доменов маркетплейса
-- Границы владения данными (docs/data-boundaries.md) — распределение баз данных
-- Взаимодействия сервисов (docs/service-interactions.md) — протоколы общения
-- C4 Container диаграмма (docs/c4-container.c4) — визуальная модель (likeC4)
+- [Архитектура](docs/architecture.md)
+- [Декомпозиция](docs/decomposition.md)
+- [Домены](docs/domains.md)
+- [Владение данными](docs/data-boundaries.md)
+- [Взаимодействия](docs/service-interactions.md)
+
+## Разработка
+
+### Отдельный сервис
+
+```bash
+cd services/users
+uv sync
+alembic upgrade head
+uv run uvicorn src.main:app --reload --port 8001
+```
+
+### Переменные окружения
+
+| Переменная | Описание |
+|------------|----------|
+| `DATABASE_URL` | URL PostgreSQL |
+| `JWT_SECRET_KEY` | Секретный ключ JWT |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Время жизни access токена |
+| `REFRESH_TOKEN_EXPIRE_DAYS` | Время жизни refresh токена |

@@ -1,0 +1,42 @@
+"""Main Gateway Application"""
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from src.config import settings
+from src.middleware import RequestIdMiddleware, LoggingMiddleware, AuthMiddleware
+from src.proxy import proxy_request
+
+# Create FastAPI app
+app = FastAPI(
+    title="API Gateway",
+    description="Unified entry point for all SOA 2026 services",
+    version="1.0.0",
+)
+
+# Add middleware
+app.add_middleware(RequestIdMiddleware)
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(AuthMiddleware)
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "service": "gateway"}
+
+
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def catch_all(request: Request):
+    """Catch all route for proxying requests"""
+    return await proxy_request(request)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "src.main:app",
+        host=settings.GATEWAY_HOST,
+        port=settings.GATEWAY_PORT,
+        reload=True,
+    )

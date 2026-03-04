@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: .
+    container_name: gateway-service
+    ports:
+      - "8000:8000"
+    environment:
+      - USERS_SERVICE_URL=http://users-service:8001
+      - CATALOG_SERVICE_URL=http://catalog-service:8002
+      - ORDERS_SERVICE_URL=http://orders-service:8003
+      - JWT_SECRET_KEY=your-secret-key-change-in-production
+    networks:
+      - soa-network
+    depends_on:
+      - users-service
+      - catalog-service
+      - orders-service
+    restart: unless-stopped
+
+  users-service:
+    image: users-service:latest
+    container_name: users-service
+    ports:
+      - "8001:8001"
+    networks:
+      - soa-network
+    restart: unless-stopped
+
+  catalog-service:
+    image: catalog-service:latest
+    container_name: catalog-service
+    ports:
+      - "8002:8002"
+    networks:
+      - soa-network
+    restart: unless-stopped
+
+  orders-service:
+    image: orders-service:latest
+    container_name: orders-service
+    ports:
+      - "8003:8003"
+    networks:
+      - soa-network
+    restart: unless-stopped
+
+networks:
+  soa-network:
+    driver: bridge

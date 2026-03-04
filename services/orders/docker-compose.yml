@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  orders-db:
+    image: postgres:15-alpine
+    container_name: orders-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orders_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - orders-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  orders-service:
+    build: .
+    container_name: orders-service
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@orders-db:5432/orders_db
+      CATALOG_SERVICE_URL: http://catalog-service:8001
+      USERS_SERVICE_URL: http://users-service:8002
+    depends_on:
+      orders-db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    command: uv run python -m uvicorn src.main:app --host 0.0.0.0 --port 8003 --reload
+
+volumes:
+  orders-db-data:
