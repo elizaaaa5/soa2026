@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +11,6 @@ from src.config import get_settings
 from src.db.models import User, UserRole, RefreshToken
 
 settings = get_settings()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class UserService:
@@ -43,9 +42,14 @@ class UserService:
         role: UserRole = UserRole.USER,
     ) -> User:
         """Создать пользователя."""
+        # Hash password using bcrypt
+        password_bytes = password.encode("utf-8")
+        salt = bcrypt.gensalt()
+        password_hash = bcrypt.hashpw(password_bytes, salt).decode("utf-8")
+
         user = User(
             email=email,
-            password_hash=pwd_context.hash(password),
+            password_hash=password_hash,
             role=role,
         )
         db.add(user)
@@ -63,7 +67,10 @@ class UserService:
         user = await UserService.get_by_email(db, email)
         if not user:
             return None
-        if not pwd_context.verify(password, user.password_hash):
+        # Verify password using bcrypt
+        password_bytes = password.encode("utf-8")
+        stored_hash = user.password_hash.encode("utf-8")
+        if not bcrypt.checkpw(password_bytes, stored_hash):
             return None
         if not user.is_active:
             return None

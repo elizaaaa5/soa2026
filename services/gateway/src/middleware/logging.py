@@ -15,6 +15,24 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         request_id = getattr(request.state, "request_id", "unknown")
         user_id = getattr(request.state, "user_id", None)
 
+        # Capture request body for mutating requests
+        request_body = None
+        if request.method in ["POST", "PUT", "DELETE"]:
+            try:
+                body = await request.body()
+                if body:
+                    body_dict = json.loads(body.decode())
+                    # Mask sensitive data
+                    if "password" in body_dict:
+                        body_dict["password"] = "***"
+                    if "token" in body_dict:
+                        body_dict["token"] = "***"
+                    if "refresh_token" in body_dict:
+                        body_dict["refresh_token"] = "***"
+                    request_body = body_dict
+            except:
+                pass
+
         # Start timer
         start_time = time.time()
 
@@ -34,6 +52,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "user_id": user_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
+        # Add request body for mutating requests
+        if request_body:
+            log_entry["request_body"] = request_body
 
         # Print JSON log
         print(json.dumps(log_entry))

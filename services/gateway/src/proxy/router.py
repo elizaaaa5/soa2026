@@ -38,6 +38,10 @@ async def proxy_request(request: Request) -> Response:
     body = await request.body()
     headers = dict(request.headers)
 
+    # Add user role from request state if available
+    if hasattr(request.state, "user_role"):
+        headers["X-User-Role"] = request.state.user_role
+
     # Remove hop-by-hop headers
     hop_by_hop = [
         "host",

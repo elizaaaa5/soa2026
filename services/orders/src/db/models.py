@@ -6,7 +6,6 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
-    Enum as SQLEnum,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -42,7 +41,7 @@ class Order(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    status = Column(SQLEnum(OrderStatus), nullable=False, default=OrderStatus.CREATED)
+    status = Column(String(50), nullable=False, default=OrderStatus.CREATED.value)
     promo_code_id = Column(
         UUID(as_uuid=True), ForeignKey("promo_codes.id"), nullable=True
     )
@@ -74,7 +73,7 @@ class PromoCode(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code = Column(String(20), nullable=False, unique=True, index=True)
-    discount_type = Column(SQLEnum(DiscountType), nullable=False)
+    discount_type = Column(String(50), nullable=False)
     discount_value = Column(Numeric(10, 2), nullable=False)
     min_order_amount = Column(Numeric(10, 2), nullable=False, default=0)
     max_uses = Column(Integer, nullable=False)
@@ -91,5 +90,5 @@ class UserOperation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    operation_type = Column(SQLEnum(OperationType), nullable=False)
+    operation_type = Column(String(50), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

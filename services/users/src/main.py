@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api import api_router
 from src.config import get_settings
+from src.middleware.logging import LoggingMiddleware
 
 settings = get_settings()
 
@@ -27,6 +28,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add logging middleware
+app.add_middleware(LoggingMiddleware)
 
 # Include API routes
 app.include_router(api_router)

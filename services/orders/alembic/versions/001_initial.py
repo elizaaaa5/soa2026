@@ -20,30 +20,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    conn = op.get_bind()
-
-    # Create ENUM types if they don't exist
-    for enum_name, enum_values in [
-        (
-            "orderstatus",
-            ["CREATED", "PAYMENT_PENDING", "PAID", "SHIPPED", "COMPLETED", "CANCELED"],
-        ),
-        ("discounttype", ["PERCENTAGE", "FIXED_AMOUNT"]),
-        ("operationtype", ["CREATE_ORDER", "UPDATE_ORDER", "CANCEL_ORDER"]),
-    ]:
-        if not conn.dialect.has_type(conn, enum_name):
-            op.execute(f"CREATE TYPE {enum_name} AS ENUM {tuple(enum_values)}")
-
     # Create promo_codes table first (no dependencies)
     op.create_table(
         "promo_codes",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("code", sa.String(20), nullable=False),
-        sa.Column(
-            "discount_type",
-            sa.Enum("PERCENTAGE", "FIXED_AMOUNT", name="discounttype"),
-            nullable=False,
-        ),
+        sa.Column("discount_type", sa.String(50), nullable=False),
         sa.Column("discount_value", sa.Numeric(10, 2), nullable=False),
         sa.Column(
             "min_order_amount", sa.Numeric(10, 2), nullable=False, server_default="0"
@@ -56,35 +38,12 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_promo_codes_code"), "promo_codes", ["code"], unique=True)
 
-    # Create order_items table (depends on orders, but orders depends on promo_codes)
-    op.create_table(
-        "order_items",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("order_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("product_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("quantity", sa.Integer(), nullable=False),
-        sa.Column("price_at_order", sa.Numeric(10, 2), nullable=False),
-        sa.ForeignKeyConstraint(["order_id"], ["orders.id"]),
-    )
-
     # Create orders table (depends on promo_codes)
     op.create_table(
         "orders",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column(
-            "status",
-            sa.Enum(
-                "CREATED",
-                "PAYMENT_PENDING",
-                "PAID",
-                "SHIPPED",
-                "COMPLETED",
-                "CANCELED",
-                name="orderstatus",
-            ),
-            nullable=False,
-        ),
+        sa.Column("status", sa.String(50), nullable=False),
         sa.Column("promo_code_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("total_amount", sa.Numeric(10, 2), nullable=False),
         sa.Column(
@@ -98,18 +57,23 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_orders_user_id"), "orders", ["user_id"])
 
+    # Create order_items table (depends on orders)
+    op.create_table(
+        "order_items",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("order_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("product_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("quantity", sa.Integer(), nullable=False),
+        sa.Column("price_at_order", sa.Numeric(10, 2), nullable=False),
+        sa.ForeignKeyConstraint(["order_id"], ["orders.id"]),
+    )
+
     # Create user_operations table (no dependencies)
     op.create_table(
         "user_operations",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column(
-            "operation_type",
-            sa.Enum(
-                "CREATE_ORDER", "UPDATE_ORDER", "CANCEL_ORDER", name="operationtype"
-            ),
-            nullable=False,
-        ),
+        sa.Column("operation_type", sa.String(50), nullable=False),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.text("now()")
         ),

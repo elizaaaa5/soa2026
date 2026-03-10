@@ -6,13 +6,14 @@ WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY gateway/pyproject.toml ./
 
 # Install dependencies
 RUN uv sync
 
 # Copy source code
-COPY src/ ./src/
+COPY gateway/src/ ./src/
+COPY shared/src/ ./shared/src/
 
 # Expose port
 EXPOSE 8000

@@ -1,20 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from typing import List
+from typing import List, Annotated
 import uuid
 
 from src.db.session import get_db
 from src.db.models import Order, OrderItem, OrderStatus, UserOperation, OperationType
-from src.api.schemas import (
+from src.api.generated.models import (
     OrderCreate,
     OrderUpdate,
     OrderResponse,
     OrderItemResponse,
-    ErrorResponse,
 )
+from src.api.schemas import ErrorResponse
 from src.services.order_service import OrderService
 from src.services.promo_service import PromoService
+from src.api.deps import get_current_user, require_role
+from sqlalchemy.orm import selectinload
 
 router = APIRouter()
 
@@ -22,10 +24,12 @@ router = APIRouter()
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
     order_data: OrderCreate,
-    user_id: uuid.UUID,
+    current_user: Annotated[dict, Depends(require_role("USER", "ADMIN"))],
     db: AsyncSession = Depends(get_db),
 ):
     """Создание заказа"""
+    user_id = uuid.UUID(current_user["id"])
+
     order_service = OrderService(db)
     promo_service = PromoService(db)
 
@@ -39,8 +43,12 @@ async def create_order(
     product_info = await order_service.validate_products(order_data.items)
 
     # Calculate totals
-    subtotal = sum(item["price"] * item["quantity"] for item in product_info)
-    discount_amount = 0
+    from decimal import Decimal
+
+    subtotal = sum(
+        Decimal(str(item["price"])) * item["quantity"] for item in product_info
+    )
+    discount_amount = Decimal(0)
 
     # Apply promo code if provided
     promo_code_id = None
@@ -82,57 +90,16 @@ async def create_order(
     db.add(operation)
 
     await db.commit()
-    await db.refresh(order)
 
-    # Build response with product names
-    items_response = []
-    for item in order.items:
-        product = next(
-            (p for p in product_info if str(p["id"]) == str(item.product_id)), None
-        )
-        items_response.append(
-            OrderItemResponse(
-                id=item.id,
-                product_id=item.product_id,
-                product_name=product["name"] if product else None,
-                quantity=item.quantity,
-                price_at_order=float(item.price_at_order),
-            )
-        )
-
-    return OrderResponse(
-        id=order.id,
-        user_id=order.user_id,
-        status=order.status,
-        items=items_response,
-        promo_code_id=order.promo_code_id,
-        total_amount=float(order.total_amount),
-        discount_amount=float(order.discount_amount),
-        created_at=order.created_at,
-        updated_at=order.updated_at,
+    # Fetch order with items after commit
+    result = await db.execute(
+        select(Order).options(selectinload(Order.items)).where(Order.id == order.id)
     )
+    order = result.scalar_one()
 
-
-@router.get("/{order_id}", response_model=OrderResponse)
-async def get_order(
-    order_id: uuid.UUID,
-    user_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-):
-    """Получение заказа по ID"""
-    order_service = OrderService(db)
-
-    order = await order_service.get_order(order_id)
-
-    # Check ownership
-    if order.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=ErrorResponse(
-                error_code="ORDER_OWNERSHIP_VIOLATION",
-                message="Заказ принадлежит другому пользователю",
-            ).model_dump(),
-        )
+    # Decrement promo code usage if applied
+    if order.promo_code_id:
+        await promo_service.decrement_usage(order.promo_code_id)
 
     # Build response
     items_response = []
@@ -164,17 +131,31 @@ async def get_order(
 async def update_order(
     order_id: uuid.UUID,
     order_data: OrderUpdate,
-    user_id: uuid.UUID,
+    current_user: Annotated[dict, Depends(require_role("USER", "ADMIN"))],
     db: AsyncSession = Depends(get_db),
 ):
     """Обновление заказа"""
+    user_id = uuid.UUID(current_user["id"])
     order_service = OrderService(db)
     promo_service = PromoService(db)
 
     # Rate limiting check
     await order_service.check_rate_limit(user_id, OperationType.UPDATE_ORDER)
 
-    order = await order_service.get_order(order_id)
+    # Get order with items to avoid lazy loading
+    result = await db.execute(
+        select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorResponse(
+                error_code="ORDER_NOT_FOUND",
+                message="Заказ не найден",
+            ).model_dump(),
+        )
 
     # Check ownership
     if order.user_id != user_id:
@@ -187,7 +168,7 @@ async def update_order(
         )
 
     # Check if order can be updated
-    if order.status not in [OrderStatus.CREATED, OrderStatus.PAYMENT_PENDING]:
+    if order.status != OrderStatus.CREATED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=ErrorResponse(
@@ -200,8 +181,12 @@ async def update_order(
     product_info = await order_service.validate_products(order_data.items)
 
     # Calculate totals
-    subtotal = sum(item["price"] * item["quantity"] for item in product_info)
-    discount_amount = 0
+    from decimal import Decimal
+
+    subtotal = sum(
+        Decimal(str(item["price"])) * item["quantity"] for item in product_info
+    )
+    discount_amount = Decimal(0)
 
     # Apply promo code if exists
     if order.promo_code_id:
@@ -237,6 +222,10 @@ async def update_order(
     # Update order
     order.total_amount = total_amount
     order.discount_amount = discount_amount
+
+    # Decrement promo code usage if it became inapplicable
+    if order.promo_code_id and discount_amount == 0:
+        await promo_service.decrement_usage(order.promo_code_id)
 
     # Record operation
     operation = UserOperation(
@@ -279,13 +268,28 @@ async def update_order(
 @router.post("/{order_id}/cancel", response_model=OrderResponse)
 async def cancel_order(
     order_id: uuid.UUID,
-    user_id: uuid.UUID,
+    current_user: Annotated[dict, Depends(require_role("USER", "ADMIN"))],
     db: AsyncSession = Depends(get_db),
 ):
     """Отмена заказа"""
+    user_id = uuid.UUID(current_user["id"])
     order_service = OrderService(db)
+    promo_service = PromoService(db)
 
-    order = await order_service.get_order(order_id)
+    # Get order with items to avoid lazy loading
+    result = await db.execute(
+        select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorResponse(
+                error_code="ORDER_NOT_FOUND",
+                message="Заказ не найден",
+            ).model_dump(),
+        )
 
     # Check ownership
     if order.user_id != user_id:
@@ -322,6 +326,66 @@ async def cancel_order(
 
     await db.commit()
     await db.refresh(order)
+
+    # Build response
+    items_response = []
+    for item in order.items:
+        items_response.append(
+            OrderItemResponse(
+                id=item.id,
+                product_id=item.product_id,
+                product_name=None,
+                quantity=item.quantity,
+                price_at_order=float(item.price_at_order),
+            )
+        )
+
+    return OrderResponse(
+        id=order.id,
+        user_id=order.user_id,
+        status=order.status,
+        items=items_response,
+        promo_code_id=order.promo_code_id,
+        total_amount=float(order.total_amount),
+        discount_amount=float(order.discount_amount),
+        created_at=order.created_at,
+        updated_at=order.updated_at,
+    )
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+async def get_order(
+    order_id: uuid.UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Получение заказа по ID"""
+    # Get order with items to avoid lazy loading
+    result = await db.execute(
+        select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+    )
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorResponse(
+                error_code="ORDER_NOT_FOUND",
+                message="Заказ не найден",
+            ).model_dump(),
+        )
+
+    # Check ownership (USER can only see their own orders, ADMIN can see all)
+    if current_user["role"] == "USER" and order.user_id != uuid.UUID(
+        current_user["id"]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ErrorResponse(
+                error_code="ORDER_OWNERSHIP_VIOLATION",
+                message="Заказ принадлежит другому пользователю",
+            ).model_dump(),
+        )
 
     # Build response
     items_response = []

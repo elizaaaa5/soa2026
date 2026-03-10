@@ -4,7 +4,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.schemas import ErrorResponse, TokenPayload
+from src.api.schemas import TokenPayload
+from src.api.generated.models import ErrorResponse
 from src.db import get_db, User
 from src.services import AuthService, UserService
 
@@ -27,6 +28,7 @@ async def get_current_user(
             detail=ErrorResponse(
                 error_code="TOKEN_INVALID",
                 message="Недействительный токен",
+                details=None,
             ).model_dump(),
         )
 
@@ -39,6 +41,7 @@ async def get_current_user(
             detail=ErrorResponse(
                 error_code="TOKEN_EXPIRED",
                 message="Токен истёк",
+                details=None,
             ).model_dump(),
         )
 
@@ -51,6 +54,7 @@ async def get_current_user(
             detail=ErrorResponse(
                 error_code="TOKEN_INVALID",
                 message="Пользователь не найден",
+                details=None,
             ).model_dump(),
         )
 
@@ -69,6 +73,7 @@ def require_role(*roles: str):
                 detail=ErrorResponse(
                     error_code="ACCESS_DENIED",
                     message="Недостаточно прав для выполнения операции",
+                    details=None,
                 ).model_dump(),
             )
         return current_user

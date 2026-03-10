@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from src.db.models import PromoCode, DiscountType
@@ -27,7 +27,7 @@ class PromoService:
             )
 
         # Validate promo code
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         if not promo_code.active:
             raise HTTPException(
@@ -95,4 +95,12 @@ class PromoService:
             update(PromoCode)
             .where(PromoCode.id == promo_code_id)
             .values(current_uses=PromoCode.current_uses + 1)
+        )
+
+    async def decrement_usage(self, promo_code_id):
+        """Уменьшение счетчика использований"""
+        await self.db.execute(
+            update(PromoCode)
+            .where(PromoCode.id == promo_code_id)
+            .values(current_uses=PromoCode.current_uses - 1)
         )

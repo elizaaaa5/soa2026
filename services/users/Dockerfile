@@ -13,8 +13,8 @@ RUN uv sync
 
 # Copy source code
 COPY src/ ./src/
-COPY alembic/ ./alembic/
 COPY alembic.ini ./
+COPY alembic/ ./alembic/
 
 # Expose port
 EXPOSE 8001

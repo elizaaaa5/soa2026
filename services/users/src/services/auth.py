@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
+import bcrypt
 from jose import jwt, JWTError
-from passlib.context import CryptContext
 
 from src.config import get_settings
 from src.db.models import User, UserRole, RefreshToken, UserOperation
@@ -16,9 +16,6 @@ from src.repositories import (
 )
 
 settings = get_settings()
-
-# Контекст для хеширования паролей
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
@@ -37,12 +34,16 @@ class AuthService:
     @staticmethod
     def hash_password(password: str) -> str:
         """Хешировать пароль."""
-        return pwd_context.hash(password)
+        password_bytes = password.encode("utf-8")
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
 
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """Проверить пароль."""
-        return pwd_context.verify(plain_password, hashed_password)
+        password_bytes = plain_password.encode("utf-8")
+        stored_hash = hashed_password.encode("utf-8")
+        return bcrypt.checkpw(password_bytes, stored_hash)
 
     def create_access_token(self, user_id: UUID, role: UserRole) -> str:
         """Создать access токен."""

@@ -63,7 +63,7 @@ def generate_service(service_name: str) -> bool:
         "--output",
         str(output_path / "models.py"),
         "--output-model-type",
-        "pydantic-v2.BaseModel",
+        "pydantic_v2.BaseModel",
         "--field-constraints",
         "--strict-types",
         "str",

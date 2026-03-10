@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import uuid
 from datetime import datetime
+from typing import Annotated
 
 from src.db.session import get_db
 from src.db.models import PromoCode, DiscountType
-from src.api.schemas import PromoCodeCreate, PromoCodeResponse
+from src.api.generated.models import PromoCodeCreate, PromoCodeResponse
+from src.api.deps import require_role
 
 router = APIRouter()
 
@@ -13,6 +16,7 @@ router = APIRouter()
 @router.post("", response_model=PromoCodeResponse, status_code=status.HTTP_201_CREATED)
 async def create_promo_code(
     promo_data: PromoCodeCreate,
+    current_user: Annotated[dict, Depends(require_role("SELLER", "ADMIN"))],
     db: AsyncSession = Depends(get_db),
 ):
     """Создание промокода"""
@@ -44,7 +48,9 @@ async def create_promo_code(
     # Create promo code
     promo_code = PromoCode(
         code=promo_data.code,
-        discount_type=promo_data.discount_type,
+        discount_type=promo_data.discount_type.value
+        if hasattr(promo_data.discount_type, "value")
+        else promo_data.discount_type,
         discount_value=promo_data.discount_value,
         min_order_amount=promo_data.min_order_amount,
         max_uses=promo_data.max_uses,

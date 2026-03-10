@@ -3,11 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.schemas import (
+from src.api.generated.models import (
     UserRegister,
     UserLogin,
-    RefreshTokenRequest,
     AuthResponse,
+    RefreshToken,
     ErrorResponse,
 )
 from src.db import get_db, User
@@ -37,6 +37,7 @@ async def register(
             detail=ErrorResponse(
                 error_code="USER_ALREADY_EXISTS",
                 message="Пользователь с таким email уже существует",
+                details=None,
             ).model_dump(),
         )
 
@@ -82,6 +83,7 @@ async def login(
             detail=ErrorResponse(
                 error_code="INVALID_CREDENTIALS",
                 message="Неверный email или пароль",
+                details=None,
             ).model_dump(),
         )
 
@@ -107,7 +109,7 @@ async def login(
     },
 )
 async def refresh(
-    data: RefreshTokenRequest,
+    data: RefreshToken,
     db: AsyncSession = Depends(get_db),
 ):
     """Обновление access токена."""
@@ -120,6 +122,7 @@ async def refresh(
             detail=ErrorResponse(
                 error_code="REFRESH_TOKEN_INVALID",
                 message="Недействительный refresh токен",
+                details=None,
             ).model_dump(),
         )
 
@@ -132,6 +135,7 @@ async def refresh(
             detail=ErrorResponse(
                 error_code="REFRESH_TOKEN_INVALID",
                 message="Недействительный или отозванный refresh токен",
+                details=None,
             ).model_dump(),
         )
 
@@ -144,6 +148,7 @@ async def refresh(
             detail=ErrorResponse(
                 error_code="REFRESH_TOKEN_INVALID",
                 message="Пользователь не найден",
+                details=None,
             ).model_dump(),
         )
 

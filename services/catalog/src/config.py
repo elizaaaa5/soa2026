@@ -19,5 +19,10 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/catalog_db"
     )
 
+    # JWT
+    jwt_secret_key: str = "super-secret-key-change-in-production"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+
 
 settings = Settings()

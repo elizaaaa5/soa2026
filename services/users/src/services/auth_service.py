@@ -72,6 +72,23 @@ class AuthService:
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(days=settings.refresh_token_expire_days)
 
+        # Отзываем все старые refresh токены пользователя
+        await db.execute(
+            select(RefreshToken).where(
+                RefreshToken.user_id == UUID(user_id),
+                RefreshToken.revoked == False
+            )
+        )
+        old_tokens_result = await db.execute(
+            select(RefreshToken).where(
+                RefreshToken.user_id == UUID(user_id),
+                RefreshToken.revoked == False
+            )
+        )
+        old_tokens = old_tokens_result.scalars().all()
+        for old_token in old_tokens:
+            old_token.revoked = True
+
         token_record = RefreshToken(
             user_id=UUID(user_id),
             token=token,

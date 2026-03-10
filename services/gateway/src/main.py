@@ -1,10 +1,21 @@
 """Main Gateway Application"""
 
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from src.config import settings
 from src.middleware import RequestIdMiddleware, LoggingMiddleware, AuthMiddleware
 from src.proxy import proxy_request
+
+# Add shared module to path
+# In Docker: /app/shared/src, in local: services/shared/src
+if Path("/app/shared/src").exists():
+    shared_path = Path("/app/shared/src")
+else:
+    shared_path = Path(__file__).parent.parent.parent / "shared" / "src"
+sys.path.insert(0, str(shared_path))
 
 # Create FastAPI app
 app = FastAPI(
@@ -12,6 +23,11 @@ app = FastAPI(
     description="Unified entry point for all SOA 2026 services",
     version="1.0.0",
 )
+
+# Setup error handlers
+from exceptions import setup_error_handlers
+
+setup_error_handlers(app)
 
 # Add middleware
 app.add_middleware(RequestIdMiddleware)

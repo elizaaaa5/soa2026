@@ -35,8 +35,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
             )
 
-            # Extract user ID
+            # Extract user ID and role
             user_id = payload.get("sub")
+            user_role = payload.get("role")
 
             if not user_id:
                 raise HTTPException(
@@ -44,8 +45,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     detail="Invalid token payload",
                 )
 
-            # Attach user ID to request state
+            # Attach user ID and role to request state
             request.state.user_id = user_id
+            request.state.user_role = user_role
 
         except JWTError:
             raise HTTPException(

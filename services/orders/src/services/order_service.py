@@ -78,8 +78,8 @@ class OrderService:
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.CATALOG_SERVICE_URL}/api/v1/products/batch",
-                json={"product_ids": product_ids},
+                f"{settings.CATALOG_SERVICE_URL}/products/batch",
+                json=product_ids,
                 timeout=10.0,
             )
 
@@ -111,7 +111,7 @@ class OrderService:
                     ).model_dump(),
                 )
 
-            if not product.get("active", False):
+            if product.get("status") != "ACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=ErrorResponse(
@@ -136,6 +136,7 @@ class OrderService:
                     "name": product.get("name"),
                     "price": product.get("price", 0),
                     "stock": stock,
+                    "quantity": item.quantity,
                 }
             )
 
@@ -157,7 +158,7 @@ class OrderService:
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.CATALOG_SERVICE_URL}/api/v1/products/{product_id}/reserve",
+                f"{settings.CATALOG_SERVICE_URL}/products/{product_id}/reserve",
                 json={"quantity": quantity},
                 timeout=10.0,
             )
@@ -171,7 +172,7 @@ class OrderService:
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.CATALOG_SERVICE_URL}/api/v1/products/{product_id}/restore",
+                f"{settings.CATALOG_SERVICE_URL}/products/{product_id}/restore",
                 json={"quantity": quantity},
                 timeout=10.0,
             )

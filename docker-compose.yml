@@ -1,7 +1,6 @@
 # Marketplace - Full Stack Docker Compose
 # Запуск всех сервисов одной командой: docker-compose up -d
 
-version: '3.8'
 
 services:
   # ==================== DATABASES ====================
@@ -66,6 +65,8 @@ services:
       JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
       REFRESH_TOKEN_EXPIRE_DAYS: 7
+    ports:
+      - "8001:8001"
     depends_on:
       users-db:
         condition: service_healthy
@@ -74,10 +75,14 @@ services:
 
   catalog-service:
     build:
-      context: ./services/catalog
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: catalog.Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@catalog-db:5432/catalog_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+    ports:
+      - "8002:8002"
     depends_on:
       catalog-db:
         condition: service_healthy
@@ -86,14 +91,17 @@ services:
 
   orders-service:
     build:
-      context: ./services/orders
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: orders.Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@orders-db:5432/orders_db
       USERS_SERVICE_URL: http://users-service:8001
       CATALOG_SERVICE_URL: http://catalog-service:8002
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
       RATE_LIMIT_MINUTES: 5
+    ports:
+      - "8003:8003"
     depends_on:
       orders-db:
         condition: service_healthy
@@ -108,8 +116,8 @@ services:
 
   gateway:
     build:
-      context: ./services/gateway
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: gateway.Dockerfile
     environment:
       USERS_SERVICE_URL: http://users-service:8001
       CATALOG_SERVICE_URL: http://catalog-service:8002
