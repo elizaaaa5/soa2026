@@ -1,0 +1,77 @@
+"""User service."""
+
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
+
+import bcrypt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.config import get_settings
+from src.db.models import User, UserRole, RefreshToken
+
+settings = get_settings()
+
+
+class UserService:
+    """Сервис для работы с пользователями."""
+
+    @staticmethod
+    async def get_by_id(db: AsyncSession, user_id: str) -> User | None:
+        """Получить пользователя по ID."""
+        result = await db.execute(select(User).where(User.id == UUID(user_id)))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_by_email(db: AsyncSession, email: str) -> User | None:
+        """Получить пользователя по email."""
+        result = await db.execute(select(User).where(User.email == email))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def email_exists(db: AsyncSession, email: str) -> bool:
+        """Проверить, существует ли email."""
+        user = await UserService.get_by_email(db, email)
+        return user is not None
+
+    @staticmethod
+    async def create(
+        db: AsyncSession,
+        email: str,
+        password: str,
+        role: UserRole = UserRole.USER,
+    ) -> User:
+        """Создать пользователя."""
+        # Hash password using bcrypt
+        password_bytes = password.encode("utf-8")
+        salt = bcrypt.gensalt()
+        password_hash = bcrypt.hashpw(password_bytes, salt).decode("utf-8")
+
+        user = User(
+            email=email,
+            password_hash=password_hash,
+            role=role,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    @staticmethod
+    async def authenticate(
+        db: AsyncSession,
+        email: str,
+        password: str,
+    ) -> User | None:
+        """Аутентифицировать пользователя."""
+        user = await UserService.get_by_email(db, email)
+        if not user:
+            return None
+        # Verify password using bcrypt
+        password_bytes = password.encode("utf-8")
+        stored_hash = user.password_hash.encode("utf-8")
+        if not bcrypt.checkpw(password_bytes, stored_hash):
+            return None
+        if not user.is_active:
+            return None
+        return user

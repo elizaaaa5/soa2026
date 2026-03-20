@@ -1,0 +1,145 @@
+# Marketplace - Full Stack Docker Compose
+# Запуск всех сервисов одной командой: docker-compose up -d
+
+
+services:
+  # ==================== DATABASES ====================
+  
+  users-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: users_db
+    volumes:
+      - users_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - marketplace-network
+
+  catalog-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: catalog_db
+    volumes:
+      - catalog_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - marketplace-network
+
+  orders-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orders_db
+    volumes:
+      - orders_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - marketplace-network
+
+  # ==================== SERVICES ====================
+
+  users-service:
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@users-db:5432/users_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+    ports:
+      - "8001:8001"
+    depends_on:
+      users-db:
+        condition: service_healthy
+    networks:
+      - marketplace-network
+
+  catalog-service:
+    build:
+      context: ./services
+      dockerfile: catalog.Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@catalog-db:5432/catalog_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+    ports:
+      - "8002:8002"
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    networks:
+      - marketplace-network
+
+  orders-service:
+    build:
+      context: ./services
+      dockerfile: orders.Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@orders-db:5432/orders_db
+      USERS_SERVICE_URL: http://users-service:8001
+      CATALOG_SERVICE_URL: http://catalog-service:8002
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      RATE_LIMIT_MINUTES: 5
+    ports:
+      - "8003:8003"
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      users-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+    networks:
+      - marketplace-network
+
+  # ==================== GATEWAY ====================
+
+  gateway:
+    build:
+      context: ./services
+      dockerfile: gateway.Dockerfile
+    environment:
+      USERS_SERVICE_URL: http://users-service:8001
+      CATALOG_SERVICE_URL: http://catalog-service:8002
+      ORDERS_SERVICE_URL: http://orders-service:8003
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-super-secret-key-change-in-production}
+    ports:
+      - "8000:8000"
+    depends_on:
+      users-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      orders-service:
+        condition: service_started
+    networks:
+      - marketplace-network
+
+volumes:
+  users_db_data:
+  catalog_db_data:
+  orders_db_data:
+
+networks:
+  marketplace-network:
+    driver: bridge

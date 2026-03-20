@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: catalog-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: catalog_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - catalog-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  catalog-service:
+    build: .
+    container_name: catalog-service
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@catalog-db:5432/catalog_db
+      SERVICE_NAME: catalog-service
+      PORT: 8002
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+
+volumes:
+  catalog-db-data:

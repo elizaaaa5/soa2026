@@ -8,7 +8,7 @@ YELLOW := \033[0;33m
 RED := \033[0;31m
 NC := \033[0m # No Color
 
-.PHONY: help up down logs restart health likec4-serve likec4-build clean test
+.PHONY: help up down logs restart health likec4-serve likec4-build clean test generate
 
 # Default target
 .DEFAULT_GOAL := help
@@ -32,12 +32,13 @@ help:
 	@echo "$(GREEN)Other:$(NC)"
 	@echo "  make clean           - Очистить все контейнеры и образы"
 	@echo "  make test            - Запустить тесты"
+	@echo "  make generate        - Сгенерировать код из OpenAPI спецификаций"
 	@echo ""
 
 # Users Service
 up:
 	@echo "$(BLUE)Запуск Users Service...$(NC)"
-	@cd services/users && docker-compose up -d
+	@docker-compose up -d
 	@echo "$(GREEN)Users Service запущен на http://localhost:8000$(NC)"
 	@sleep 2
 	@make health
@@ -89,4 +90,12 @@ clean:
 
 test:
 	@echo "$(BLUE)Запуск тестов...$(NC)"
-	@echo "$(YELLOW)Тесты еще не реализованы$(NC)"
+	uv run pytest tests/ -v --tb=short
+
+generate:
+	@echo "$(BLUE)Генерация кода из OpenAPI спецификаций...$(NC)"
+	@echo "$(GREEN)Генерация моделей для Catalog Service...$(NC)"
+	@cd services/catalog && uv run datamodel-codegen --input ../shared/openapi/catalog.yaml --output src/api/generated/models.py --input-file-type openapi
+	@echo "$(GREEN)Генерация моделей для Orders Service...$(NC)"
+	@cd services/orders && uv run datamodel-codegen --input ../shared/openapi/orders.yaml --output src/api/generated/models.py --input-file-type openapi
+	@echo "$(GREEN)Код успешно сгенерирован$(NC)"

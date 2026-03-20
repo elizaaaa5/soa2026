@@ -1,0 +1,9 @@
+# Игнорируем сгенерированный код
+*/api/generated/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/

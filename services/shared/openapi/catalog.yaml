@@ -1,0 +1,362 @@
+# OpenAPI спецификация для Catalog Service (Products)
+
+openapi: 3.0.3
+info:
+  title: Catalog Service API
+  description: API для управления товарами маркетплейса
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8002
+    description: Local development
+
+tags:
+  - name: products
+    description: Управление товарами
+
+paths:
+  /products:
+    post:
+      tags:
+        - products
+      summary: Создание товара
+      operationId: createProduct
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreate'
+      responses:
+        '201':
+          description: Товар успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    get:
+      tags:
+        - products
+      summary: Список товаров с пагинацией и фильтрацией
+      operationId: listProducts
+      parameters:
+        - name: page
+          in: query
+          description: Номер страницы (начиная с 0)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          description: Размер страницы
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: status
+          in: query
+          description: Фильтр по статусу
+          schema:
+            $ref: '#/components/schemas/ProductStatus'
+        - name: category
+          in: query
+          description: Фильтр по категории (точное совпадение)
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: Список товаров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+
+  /products/{id}:
+    get:
+      tags:
+        - products
+      summary: Получение товара по ID
+      operationId: getProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Товар найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - products
+      summary: Обновление товара
+      operationId: updateProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdate'
+      responses:
+        '200':
+          description: Товар успешно обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - products
+      summary: Мягкое удаление товара (перевод в статус ARCHIVED)
+      operationId: deleteProduct
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Товар успешно архивирован
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ProductStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - ARCHIVED
+      description: Статус товара
+
+    ProductCreate:
+      type: object
+      required:
+        - name
+        - price
+        - stock
+        - category
+        - status
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "iPhone 15 Pro"
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+          example: "Флагманский смартфон Apple"
+        price:
+          type: number
+          format: decimal
+          minimum: 0.01
+          exclusiveMinimum: true
+          example: 999.99
+        stock:
+          type: integer
+          minimum: 0
+          example: 100
+        category:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "electronics"
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 4000
+          nullable: true
+        price:
+          type: number
+          format: decimal
+          minimum: 0.01
+          exclusiveMinimum: true
+        stock:
+          type: integer
+          minimum: 0
+        category:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+
+    ProductResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "iPhone 15 Pro"
+        description:
+          type: string
+          nullable: true
+          example: "Флагманский смартфон Apple"
+        price:
+          type: number
+          format: decimal
+          example: 999.99
+        stock:
+          type: integer
+          example: 100
+        category:
+          type: string
+          example: "electronics"
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+        seller_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T12:00:00Z"
+
+    ProductListResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+        total_elements:
+          type: integer
+          example: 100
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          example: "PRODUCT_NOT_FOUND"
+        message:
+          type: string
+          example: "Товар не найден"
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "VALIDATION_ERROR"
+            message: "Ошибка валидации входных данных"
+            details:
+              field: "price"
+              constraint: "must be greater than 0"
+
+    Unauthorized:
+      description: Неавторизован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "TOKEN_INVALID"
+            message: "Недействительный токен"
+
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "ACCESS_DENIED"
+            message: "Недостаточно прав для выполнения операции"
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "PRODUCT_NOT_FOUND"
+            message: "Товар не найден"

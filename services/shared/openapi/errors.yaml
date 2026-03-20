@@ -1,0 +1,86 @@
+# Общие схемы ошибок для всех сервисов
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          description: Машиночитаемый код ошибки
+          example: "PRODUCT_NOT_FOUND"
+        message:
+          type: string
+          description: Человекочитаемое описание
+          example: "Товар не найден"
+        details:
+          type: object
+          description: Дополнительные данные (опционально)
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Ошибка валидации входных данных
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "VALIDATION_ERROR"
+            message: "Ошибка валидации входных данных"
+            details:
+              field: "price"
+              constraint: "must be greater than 0"
+
+    Unauthorized:
+      description: Неавторизованный доступ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "TOKEN_INVALID"
+            message: "Недействительный токен"
+
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "ACCESS_DENIED"
+            message: "Недостаточно прав для выполнения операции"
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "PRODUCT_NOT_FOUND"
+            message: "Товар не найден"
+
+    Conflict:
+      description: Конфликт состояния
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "INSUFFICIENT_STOCK"
+            message: "Недостаточно товара на складе"
+
+    TooManyRequests:
+      description: Превышен лимит запросов
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "ORDER_LIMIT_EXCEEDED"
+            message: "Превышен лимит частоты создания заказа"

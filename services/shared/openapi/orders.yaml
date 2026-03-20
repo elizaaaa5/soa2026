@@ -1,0 +1,490 @@
+# OpenAPI спецификация для Orders Service
+
+openapi: 3.0.3
+info:
+  title: Orders Service API
+  description: API для управления заказами маркетплейса
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8003
+    description: Local development
+
+tags:
+  - name: orders
+    description: Управление заказами
+  - name: promo-codes
+    description: Управление промокодами
+
+paths:
+  /orders:
+    post:
+      tags:
+        - orders
+      summary: Создание заказа
+      operationId: createOrder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreate'
+      responses:
+        '201':
+          description: Заказ успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /orders/{id}:
+    get:
+      tags:
+        - orders
+      summary: Получение заказа по ID
+      operationId: getOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - orders
+      summary: Обновление заказа
+      operationId: updateOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderUpdate'
+      responses:
+        '200':
+          description: Заказ успешно обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /orders/{id}/cancel:
+    post:
+      tags:
+        - orders
+      summary: Отмена заказа
+      operationId: cancelOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ успешно отменен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /promo-codes:
+    post:
+      tags:
+        - promo-codes
+      summary: Создание промокода
+      operationId: createPromoCode
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoCodeCreate'
+      responses:
+        '201':
+          description: Промокод успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoCodeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Enums
+    OrderStatus:
+      type: string
+      enum:
+        - CREATED
+        - PAYMENT_PENDING
+        - PAID
+        - SHIPPED
+        - COMPLETED
+        - CANCELED
+      description: Статус заказа
+
+    DiscountType:
+      type: string
+      enum:
+        - PERCENTAGE
+        - FIXED_AMOUNT
+      description: Тип скидки
+
+    # Order schemas
+    OrderItemCreate:
+      type: object
+      required:
+        - product_id
+        - quantity
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 999
+          example: 2
+
+    OrderCreate:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/OrderItemCreate'
+        promo_code:
+          type: string
+          pattern: '^[A-Z0-9_]{4,20}$'
+          example: "SUMMER2024"
+          nullable: true
+
+    OrderUpdate:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/OrderItemCreate'
+
+    OrderItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product_id:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+        quantity:
+          type: integer
+        price_at_order:
+          type: number
+          format: decimal
+          description: Цена на момент заказа (snapshot)
+
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/OrderStatus'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemResponse'
+        promo_code_id:
+          type: string
+          format: uuid
+          nullable: true
+        total_amount:
+          type: number
+          format: decimal
+          description: Итоговая сумма после скидки
+        discount_amount:
+          type: number
+          format: decimal
+          description: Сумма скидки
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # Promo code schemas
+    PromoCodeCreate:
+      type: object
+      required:
+        - code
+        - discount_type
+        - discount_value
+        - valid_from
+        - valid_until
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z0-9_]{4,20}$'
+          example: "SUMMER2024"
+        discount_type:
+          $ref: '#/components/schemas/DiscountType'
+        discount_value:
+          type: number
+          format: decimal
+          minimum: 0.01
+          description: Значение скидки (% или фиксированная сумма)
+          example: 10.00
+        min_order_amount:
+          type: number
+          format: decimal
+          minimum: 0
+          default: 0
+          description: Минимальная сумма заказа для применения
+          example: 100.00
+        max_uses:
+          type: integer
+          minimum: 1
+          description: Максимальное количество использований
+          example: 1000
+        valid_from:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        valid_until:
+          type: string
+          format: date-time
+          example: "2024-12-31T23:59:59Z"
+
+    PromoCodeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        discount_type:
+          $ref: '#/components/schemas/DiscountType'
+        discount_value:
+          type: number
+          format: decimal
+        min_order_amount:
+          type: number
+          format: decimal
+        max_uses:
+          type: integer
+        current_uses:
+          type: integer
+        valid_from:
+          type: string
+          format: date-time
+        valid_until:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+
+    # Error response
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+      properties:
+        error_code:
+          type: string
+          example: "PRODUCT_NOT_FOUND"
+        message:
+          type: string
+          example: "Товар не найден"
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "VALIDATION_ERROR"
+            message: "Ошибка валидации входных данных"
+
+    Unauthorized:
+      description: Неавторизован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "TOKEN_INVALID"
+            message: "Недействительный токен"
+
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "ORDER_OWNERSHIP_VIOLATION"
+            message: "Заказ принадлежит другому пользователю"
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "ORDER_NOT_FOUND"
+            message: "Заказ не найден"
+
+    Conflict:
+      description: Конфликт состояния
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            insufficient_stock:
+              value:
+                error_code: "INSUFFICIENT_STOCK"
+                message: "Недостаточно товара на складе"
+                details:
+                  items:
+                    - product_id: "550e8400-e29b-41d4-a716-446655440000"
+                      requested: 10
+                      available: 5
+            invalid_state:
+              value:
+                error_code: "INVALID_STATE_TRANSITION"
+                message: "Недопустимый переход состояния заказа"
+            has_active:
+              value:
+                error_code: "ORDER_HAS_ACTIVE"
+                message: "У пользователя уже есть активный заказ"
+            product_inactive:
+              value:
+                error_code: "PRODUCT_INACTIVE"
+                message: "Товар неактивен"
+
+    UnprocessableEntity:
+      description: Ошибка бизнес-логики
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            promo_invalid:
+              value:
+                error_code: "PROMO_CODE_INVALID"
+                message: "Промокод не найден, истёк, исчерпан или неактивен"
+            promo_min_amount:
+              value:
+                error_code: "PROMO_CODE_MIN_AMOUNT"
+                message: "Сумма заказа ниже минимальной для промокода"
+
+    TooManyRequests:
+      description: Превышен лимит запросов
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error_code: "ORDER_LIMIT_EXCEEDED"
+            message: "Превышен лимит частоты создания/обновления заказа"

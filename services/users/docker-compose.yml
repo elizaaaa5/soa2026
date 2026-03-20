@@ -1,28 +1,35 @@
 version: '3.8'
 
 services:
-  users-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: users-service
-    ports:
-      - "8000:8000"
+  users-db:
+    image: postgres:15-alpine
     environment:
-      - SERVICE_NAME=users-service
-      - SERVICE_VERSION=1.0.0
-      - HOST=0.0.0.0
-      - PORT=8000
-    networks:
-      - marketplace-network
-    restart: unless-stopped
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: users_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - users_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-networks:
-  marketplace-network:
-    driver: bridge
+  users-service:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@users-db:5432/users_db
+      JWT_SECRET_KEY: super-secret-key-change-in-production
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+    ports:
+      - "8001:8001"
+    depends_on:
+      users-db:
+        condition: service_healthy
+
+volumes:
+  users_db_data:
